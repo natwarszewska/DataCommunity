@@ -1,0 +1,3 @@
+put --region=/SALES --key-class=java.lang.String --key='HighFive' --value-class=dc.gemfire.model.Sale --value=('saleName':'HighFive','discountValue':5,'startDate':'20200101','endDate':'20201231')
+put --region=/SALES --key-class=java.lang.String --key='HalfPrice' --value-class=dc.gemfire.model.Sale --value=('saleName':'HalfPrice','discountValue':50,'startDate':'20200101','endDate':'20200131')
+put --region=/SALES --key-class=java.lang.String --key='Super26' --value-class=dc.gemfire.model.Sale --value=('saleName':'Super26','discountValue':26,'startDate':'20200101','endDate':'20200526')

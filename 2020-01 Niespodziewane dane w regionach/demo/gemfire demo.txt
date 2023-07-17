@@ -1,0 +1,145 @@
+cd C:\db\pivotal-gemfire-9.7.2\bin
+rm -rf server1\
+rm -rf backup\
+rm -rf locator1\
+
+----------------------------------------
+Uruchomienie GemFire shell
+----------------------------------------
+gfsh
+
+start locator --name=locator1  --classpath=c:\db\pivotal-gemfire-9.7.2\lib\bookstore-model-1.0.0.jar
+start server --name=server1 --server-port=40410 --classpath=c:\db\pivotal-gemfire-9.7.2\lib\bookstore-model-1.0.0.jar
+
+----------------------------------------
+Wyświetlenie listy i tworzenie regionów
+----------------------------------------
+create region --name=RANKS --type=REPLICATE_PERSISTENT --key-constraint=java.lang.String --value-constraint=dc.gemfire.model.Rank
+create region --name=SALES --type=REPLICATE_PERSISTENT --key-constraint=java.lang.String --value-constraint=dc.gemfire.model.Sale
+create region --name=CUSTOMERS --type=REPLICATE_PERSISTENT --key-constraint=java.lang.String --value-constraint=dc.gemfire.model.Customer
+create region --name=BOOKS --type=REPLICATE_PERSISTENT --key-constraint=java.lang.String --value-constraint=dc.gemfire.model.Book
+create region --name=LOCATIONS --type=REPLICATE_PERSISTENT --key-constraint=java.lang.String --value-constraint=dc.gemfire.model.Location
+
+list regions
+
+----------------------------------------
+Liczba obiektów w regionach (puste)
+----------------------------------------
+query --query="select count(*) from /SALES"
+query --query="select count(*) from /CUSTOMERS"
+query --query="select count(*) from /LOCATIONS"
+query --query="select count(*) from /BOOKS"
+query --query="select count(*) from /RANKS"
+
+----------------------------------------
+Załadowanie danych 
+----------------------------------------
+run --file=c:\demo\gemfire\scripts\put-sales.gfsh
+run --file=c:\demo\gemfire\scripts\put-customers.gfsh
+run --file=c:\demo\gemfire\scripts\put-locations.gfsh
+run --file=c:\demo\gemfire\scripts\put-books.gfsh
+
+----------------------------------------
+Liczba obiektów w regionach 
+----------------------------------------
+query --query="select count(*) from /SALES"
+query --query="select count(*) from /CUSTOMERS"
+query --query="select count(*) from /LOCATIONS"
+query --query="select count(*) from /BOOKS"
+query --query="select count(*) from /RANKS"
+
+
+----------------------------------------
+Nadpisanie istniejącego obiektu 
+----------------------------------------
+query --query="select count(*) from /SALES"
+query --query="select * from /SALES"
+
+put --region=/SALES --key-class=java.lang.String --key='Super26' --value-class=dc.gemfire.model.Sale --value=('saleName':'Super26','discountValue':26,'startDate':'20200101','endDate':'20200331')
+
+----------------------------------------
+Próba załadowania niepoprawego obiektu
+----------------------------------------
+put --region=/CUSTOMERS --key-class=java.lang.String --key='Super26' --value-class=dc.gemfire.model.Sale --value=('saleName':'Super26','discountValue':26,'startDate':'20200101','endDate':'20200526')
+
+Message : value ( dc.gemfire.model.Sale ) does not satisfy valueConstraint ( dc.gemfire.model.Customer )
+Result  : false
+
+----------------------------------------
+Backup / export danych z regionów
+----------------------------------------
+export data --region=/BOOKS --file=backup/20200129/books_20200129.gfd --member=server1
+export data --region=/CUSTOMERS --file=backup/20200129/customers_20200129.gfd --member=server1
+export data --region=/LOCATIONS --file=backup/20200129/locations_20200129.gfd --member=server1
+export data --region=/RANKS --file=backup/20200129/ranks_20200129.gfd --member=server1
+export data --region=/SALES --file=backup/20200129/sales_20200129.gfd --member=server1
+
+
+----------------------------------------
+Import danych do złego regionu
+----------------------------------------
+query --query="select count(*) from /CUSTOMERS"
+// 1250
+
+import data --region=/CUSTOMERS --file=backup/20200129/sales_20200129.gfd --member=server1
+Data imported from file : C:\db\pivotal-gemfire-9.7.2\bin\server1\backup\20200129\sales_20200129.gfd on host : 192.168.0.14 to region : /CUSTOMERS
+
+query --query="select count(*) from /CUSTOMERS"
+// 1253
+
+----------------------------------------
+Usunięcie niepoprawnych obiektów (pojedynczy remove)
+----------------------------------------
+query --query="select toString() from /CUSTOMERS"
+query --query="select * from /CUSTOMERS where toString() like '%saleName%'"
+
+remove --region=/CUSTOMERS --key=HalfPrice
+remove --region=/CUSTOMERS --key=HighFive
+remove --region=/CUSTOMERS --key=Super26
+
+query --query="select * from /CUSTOMERS where toString() like '%saleName%'"
+
+----------------------------------------
+Załadowanie większej ilości niepoprawnych obiektów
+----------------------------------------
+query --query="select count(*) from /CUSTOMERS"
+//1250
+
+import data --region=/CUSTOMERS --file=backup/20200129/locations_20200129.gfd --member=server1
+Data imported from file : C:\db\pivotal-gemfire-9.7.2\bin\server1\backup\20200129\locations_20200129.gfd on host : 192.168.0.14 to region : /CUSTOMERS
+
+query --query="select count(*) from /CUSTOMERS"
+// 1550
+
+query --query="select * from /CUSTOMERS where toString() like '%address%'"
+
+----------------------------------------
+Usuwanie (skrypty)
+----------------------------------------
+remove --region=/CUSTOMERS --key="Ustka"
+
+query --query="select name from /CUSTOMERS where toString() like '%address%'"
+
+exit 
+
+gfsh run --file=c:\demo\gemfire\scripts\get-keys.gfsh > c:\demo\keys.txt
+C:\demo\prepare_remove_commands.bat
+
+gfsh 
+connect --locator=localhost[10334]
+query --query="select count(*) from /CUSTOMERS where toString() like '%address%'"
+run --file=c:\demo\keys_with_remove_cmd.gfsh 
+query --query="select count(*) from /CUSTOMERS where toString() like '%address%'"
+
+----------------------------------------
+Usunięcie regionów
+----------------------------------------
+destroy region --name BOOKS
+destroy region --name CUSTOMERS
+destroy region --name LOCATIONS
+destroy region --name RANKS
+destroy region --name SALES
+
+list regions
+
+exit

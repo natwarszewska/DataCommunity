@@ -1,0 +1,2 @@
+connect --locator=localhost[10334]
+query --query="select name from /CUSTOMERS where toString() like '%address%'"
